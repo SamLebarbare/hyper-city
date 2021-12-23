@@ -13,4 +13,18 @@ const tileLoader = (loader, tileName, collection) => {
   );
 };
 
-export { tileLoader, tile };
+const tileOverlaps = (a, b) => {
+  return a.position.x === b.position.x && a.position.z === b.position.z;
+};
+
+const moveTo = (a, b, layer = 0) => {
+  a.position.x = b.position.x;
+  a.position.z = b.position.z;
+  a.position.y = layer;
+};
+
+const getStackId = (tile) => {
+  return `${tile.position.x}-${tile.position.z}`;
+};
+
+export { tileLoader, tile, tileOverlaps, moveTo, getStackId };

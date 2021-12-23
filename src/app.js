@@ -2,16 +2,20 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import * as AmmoInit from "three/examples/js/libs/ammo.wasm.js";
 import { VOXLoader } from "three/examples/jsm/loaders/VOXLoader.js";
-import { tileLoader } from "./utils.js";
+import { moveTo, tileOverlaps, tileLoader, getStackId } from "./utils.js";
 import { build, buildCursor, buildWorld } from "./world.js";
 
 let canvas,
   camera,
   raycaster,
   mouse,
-  pointedTile,
-  selectedTile,
   clock,
+  pointedSelectedTile,
+  selectedStack,
+  cardStacks = {},
+  doAction = false,
+  doMove = false,
+  updating = false,
   controls,
   scene,
   tiles = {},
@@ -20,7 +24,7 @@ let canvas,
 async function main() {
   //Ammo = await AmmoInit();
   await init();
-  animate();
+  update();
 }
 main();
 
@@ -69,10 +73,11 @@ async function init() {
   console.log("loading voxels collection done");
 
   const world = buildWorld(6, 6, cardsName);
-  build(scene, world, tiles);
+  build(scene, world, tiles, cardStacks);
 
   cursor = buildCursor(scene, tiles["select"], 0, 0);
-
+  pointedSelectedTile = buildCursor(scene, tiles["selected"], 0, 0);
+  pointedSelectedTile.visible = false;
   // renderer
 
   renderer = new THREE.WebGLRenderer();
@@ -100,50 +105,68 @@ function onMouseMove(event) {
 }
 
 function onMouseClick(event) {
-  if (selectedTile) {
-    if (
-      selectedTile.position.x == pointedTile.position.x &&
-      selectedTile.position.z == pointedTile.position.z
-    ) {
-      selectedTile.visible = false;
-    } else {
-      selectedTile.position.x = pointedTile.position.x;
-      selectedTile.position.z = pointedTile.position.z;
-      selectedTile.visible = true;
-    }
-  } else {
-    selectedTile = buildCursor(scene, tiles["selected"], 0, 0);
-    selectedTile.position.x = pointedTile.position.x;
-    selectedTile.position.z = pointedTile.position.z;
+  doAction = true;
+}
+
+function update() {
+  if (updating) {
+    requestAnimationFrame(update);
+    return;
   }
-}
-
-function onWindowResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-
-  renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
-function animate() {
-  requestAnimationFrame(animate);
-
+  controls.update();
   // update the picking ray with the camera and mouse position
   raycaster.setFromCamera(mouse, camera);
 
+  let pointedTile;
   // calculate objects intersecting the picking ray
   const intersects = raycaster.intersectObjects(scene.children);
-
-  for (let i = 0; i < intersects.length; i++) {
-    const { x, z } = intersects[i].object.position;
-    cursor.position.x = x;
-    cursor.position.z = z;
-    pointedTile = intersects[i].object;
+  if (intersects.length > 0) {
+    const intersected = intersects[intersects.length - 1].object;
+    const stack = cardStacks[getStackId(intersected)];
+    pointedTile = stack[stack.length - 1];
+    if (pointedTile) {
+      const { x, y, z } = pointedTile.position;
+      cursor.position.x = x;
+      cursor.position.y = y;
+      cursor.position.z = z;
+    }
   }
 
-  controls.update();
+  if (doAction && pointedTile) {
+    updating = true;
+    if (tileOverlaps(pointedSelectedTile, pointedTile)) {
+      moveTo(pointedSelectedTile, pointedTile, pointedTile.position.y);
+      pointedSelectedTile.visible = !pointedSelectedTile.visible;
+      doMove = pointedSelectedTile.visible;
+      selectedStack = null;
+    } else {
+      if (doMove && selectedStack) {
+        const fromStack = cardStacks[selectedStack];
+        const card = fromStack.splice(fromStack.length - 1, 1)[0];
+        const stack = cardStacks[getStackId(pointedTile)];
+        stack.push(card);
+        moveTo(card, pointedTile, 1);
+        moveTo(card, card, stack.length / 50);
+        pointedSelectedTile.visible = false;
+        selectedStack = null;
+        doMove = false;
+      } else {
+        moveTo(
+          pointedSelectedTile,
+          pointedTile,
+          pointedTile.position.y - 0.001
+        );
+        pointedSelectedTile.visible = true;
+        selectedStack = getStackId(pointedTile);
+        doMove = true;
+      }
+    }
+    doAction = false;
+    updating = false;
+  }
 
   renderer.render(scene, camera);
+  requestAnimationFrame(update);
 }
 
 function onKeyDown(event) {
@@ -154,4 +177,11 @@ function onKeyDown(event) {
 function onKeyUp(event) {
   switch (event.code) {
   }
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(window.innerWidth, window.innerHeight);
 }

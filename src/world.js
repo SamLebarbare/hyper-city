@@ -1,4 +1,5 @@
 import { VOXMesh } from "three/examples/jsm/loaders/VOXLoader.js";
+import { getStackId } from "./utils";
 const TILE_SCALE = 0.0025;
 
 const buildTileMeshes = (scene, chunks, x, y, z, rot) => {
@@ -19,9 +20,17 @@ const buildTileMeshes = (scene, chunks, x, y, z, rot) => {
   return object[0];
 };
 
-const build = (scene, tiles, collection) => {
+const build = (scene, tiles, collection, cardStacks) => {
   for (const tile of tiles) {
-    buildTileMeshes(scene, collection[tile.name], tile.x, 0, tile.y, tile.rot);
+    const card = buildTileMeshes(
+      scene,
+      collection[tile.name],
+      tile.x,
+      0,
+      tile.y,
+      tile.rot
+    );
+    cardStacks[getStackId(card)] = [card];
   }
 };
 
