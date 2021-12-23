@@ -3,43 +3,30 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import * as AmmoInit from "three/examples/js/libs/ammo.wasm.js";
 import { VOXLoader } from "three/examples/jsm/loaders/VOXLoader.js";
 import { tileLoader } from "./utils.js";
-import { build, buildWorld } from "./world.js";
+import { build, buildCursor, buildWorld } from "./world.js";
 
-let Ammo,
+let canvas,
   camera,
+  raycaster,
+  mouse,
+  pointedTile,
+  selectedTile,
   clock,
   controls,
   scene,
-  renderer,
-  player,
-  playerC = { a: false, s: false, w: false, d: false };
+  tiles = {},
+  renderer;
 
 async function main() {
-  Ammo = await AmmoInit();
-
-  /*const transform = new Ammo.btTransform();
-  transform.setIdentity();
-  transform.setOrigin(new Ammo.btVector3(position.x, position.y, position.z));
-  transform.setRotation(
-    new Ammo.btQuaternion(
-      quaternion.x,
-      quaternion.y,
-      quaternion.z,
-      quaternion.w
-    )
-  );
-  let defaultMotionState = new Ammo.btDefaultMotionState(transform);
-
-  let structColShape = new Ammo.btBoxShape(
-    new Ammo.btVector3(scale * 0.5, scale * 0.5, scale * 0.5)
-  );
-  structColShape.setMargin(0.05);*/
+  //Ammo = await AmmoInit();
   await init();
   animate();
 }
 main();
 
 async function init() {
+  raycaster = new THREE.Raycaster();
+  mouse = new THREE.Vector2();
   clock = new THREE.Clock();
   camera = new THREE.PerspectiveCamera(
     50,
@@ -71,17 +58,21 @@ async function init() {
   scene.add(dirLight2);
 
   const loader = new VOXLoader();
-  const voxels = {};
-  const tilesName = ["grass", "grass2", "road", "goblin", "farm", "mount"];
-  for (const tileName of tilesName) {
+  const cardsName = ["forest", "winter", "rock", "volcano", "swamp", "island"];
+  const markersName = ["select", "selected"];
+  const all = [...cardsName, ...markersName];
+  for (const tileName of all) {
     console.log("loading ", tileName);
-    await tileLoader(loader, tileName, voxels);
+    await tileLoader(loader, tileName, tiles);
     console.log("[DONE]");
   }
   console.log("loading voxels collection done");
 
-  const world = buildWorld(10, 10, ["grass", "grass2", "farm", "mount"]);
-  player = build(scene, world, voxels);
+  const world = buildWorld(6, 6, cardsName);
+  build(scene, world, tiles);
+
+  cursor = buildCursor(scene, tiles["select"], 0, 0);
+
   // renderer
 
   renderer = new THREE.WebGLRenderer();
@@ -98,6 +89,33 @@ async function init() {
   window.addEventListener("resize", onWindowResize);
   document.addEventListener("keydown", onKeyDown);
   document.addEventListener("keyup", onKeyUp);
+  canvas = renderer.domElement;
+  canvas.addEventListener("mousemove", onMouseMove);
+  canvas.addEventListener("click", onMouseClick);
+}
+
+function onMouseMove(event) {
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+}
+
+function onMouseClick(event) {
+  if (selectedTile) {
+    if (
+      selectedTile.position.x == pointedTile.position.x &&
+      selectedTile.position.z == pointedTile.position.z
+    ) {
+      selectedTile.visible = false;
+    } else {
+      selectedTile.position.x = pointedTile.position.x;
+      selectedTile.position.z = pointedTile.position.z;
+      selectedTile.visible = true;
+    }
+  } else {
+    selectedTile = buildCursor(scene, tiles["selected"], 0, 0);
+    selectedTile.position.x = pointedTile.position.x;
+    selectedTile.position.z = pointedTile.position.z;
+  }
 }
 
 function onWindowResize() {
@@ -110,68 +128,30 @@ function onWindowResize() {
 function animate() {
   requestAnimationFrame(animate);
 
-  controls.update();
-  if (playerC.a) {
-    player[0].rotation.y += 0.1;
-  }
-  if (playerC.d) {
-    player[0].rotation.y -= 0.1;
+  // update the picking ray with the camera and mouse position
+  raycaster.setFromCamera(mouse, camera);
+
+  // calculate objects intersecting the picking ray
+  const intersects = raycaster.intersectObjects(scene.children);
+
+  for (let i = 0; i < intersects.length; i++) {
+    const { x, z } = intersects[i].object.position;
+    cursor.position.x = x;
+    cursor.position.z = z;
+    pointedTile = intersects[i].object;
   }
 
-  if (playerC.w) {
-    player[0].translateZ(-0.001);
-  }
-  if (playerC.s) {
-    player[0].translateZ(0.001);
-  }
+  controls.update();
 
   renderer.render(scene, camera);
 }
 
 function onKeyDown(event) {
   switch (event.code) {
-    case "ArrowUp":
-    case "KeyW":
-      playerC.w = true;
-      break;
-
-    case "ArrowDown":
-    case "KeyS":
-      playerC.s = true;
-      break;
-
-    case "ArrowLeft":
-    case "KeyA":
-      playerC.a = true;
-      break;
-
-    case "ArrowRight":
-    case "KeyD":
-      playerC.d = true;
-      break;
   }
 }
 
 function onKeyUp(event) {
   switch (event.code) {
-    case "ArrowUp":
-    case "KeyW":
-      playerC.w = false;
-      break;
-
-    case "ArrowDown":
-    case "KeyS":
-      playerC.s = false;
-      break;
-
-    case "ArrowLeft":
-    case "KeyA":
-      playerC.a = false;
-      break;
-
-    case "ArrowRight":
-    case "KeyD":
-      playerC.d = false;
-      break;
   }
 }

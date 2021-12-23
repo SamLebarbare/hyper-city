@@ -1,6 +1,4 @@
 import { VOXMesh } from "three/examples/jsm/loaders/VOXLoader.js";
-import { MathUtils } from "three";
-import noise from "asm-noise";
 const TILE_SCALE = 0.0025;
 
 const buildTileMeshes = (scene, chunks, x, y, z, rot) => {
@@ -17,17 +15,17 @@ const buildTileMeshes = (scene, chunks, x, y, z, rot) => {
     scene.add(mesh);
     object.push(mesh);
   }
-  return object;
+  //TODO group mesh
+  return object[0];
 };
 
 const build = (scene, tiles, collection) => {
   for (const tile of tiles) {
     buildTileMeshes(scene, collection[tile.name], tile.x, 0, tile.y, tile.rot);
   }
-  return buildTileMeshes(scene, collection["goblin"], 3, 0, 2, 0);
 };
 
-const tile = (name = "grass", x = 0, y = 0, rot = 0) => {
+const tile = (name = "base", x = 0, y = 0, rot = 0) => {
   return {
     name,
     x,
@@ -44,24 +42,28 @@ function getRandomIntInclusive(min, max) {
 
 const buildWorld = (width, depth, tilesName) => {
   const data = [];
-  const angles = [
-    MathUtils.degToRad(0),
-    MathUtils.degToRad(90),
-    MathUtils.degToRad(180),
-    MathUtils.degToRad(270),
-  ];
-  let c = 0;
+  const cardsCount = width * depth;
+  const setCount = cardsCount / tilesName.length;
+  const stack = [];
+  for (const tile of tilesName) {
+    for (let i = 0; i < setCount; i++) {
+      stack.push(tile);
+    }
+  }
 
   for (let x = 0; x < depth; x++) {
     for (let y = 0; y < width; y++) {
-      const v = noise(x, y);
-      const i = getRandomIntInclusive(0, Math.round(v * 10));
-      console.log(i, v);
-      data.push(tile(tilesName[i], x, y, angles[getRandomIntInclusive(0, 3)]));
-      c++;
+      const card = stack.splice(
+        getRandomIntInclusive(0, stack.length - 1),
+        1
+      )[0];
+      data.push(tile(card, x, y, 0));
     }
   }
   return data;
 };
 
-export { build, buildWorld };
+const buildCursor = (scene, tile, x, y) => {
+  return buildTileMeshes(scene, tile, x, 0, y, 0);
+};
+export { build, buildWorld, buildCursor };
