@@ -72,7 +72,7 @@ async function init() {
   }
   console.log("loading voxels collection done");
 
-  const world = buildWorld(6, 6, cardsName);
+  const world = buildWorld(6, 5, cardsName);
   build(scene, world, tiles, cardStacks);
 
   cursor = buildCursor(scene, tiles["select"], 0, 0);
@@ -108,22 +108,24 @@ function onMouseClick(event) {
   doAction = true;
 }
 
-function update() {
+async function update() {
   if (updating) {
     requestAnimationFrame(update);
     return;
   }
+
   controls.update();
   // update the picking ray with the camera and mouse position
   raycaster.setFromCamera(mouse, camera);
 
   let pointedTile;
+  let pointedStack;
   // calculate objects intersecting the picking ray
   const intersects = raycaster.intersectObjects(scene.children);
   if (intersects.length > 0) {
     const intersected = intersects[intersects.length - 1].object;
-    const stack = cardStacks[getStackId(intersected)];
-    pointedTile = stack[stack.length - 1];
+    pointedStack = cardStacks[getStackId(intersected)];
+    pointedTile = pointedStack[pointedStack.length - 1];
     if (pointedTile) {
       const { x, y, z } = pointedTile.position;
       cursor.position.x = x;
@@ -132,22 +134,26 @@ function update() {
     }
   }
 
-  if (doAction && pointedTile) {
+  if (doAction && pointedStack && pointedTile) {
     updating = true;
-    if (tileOverlaps(pointedSelectedTile, pointedTile)) {
+    if (selectedStack === pointedStack) {
       moveTo(pointedSelectedTile, pointedTile, pointedTile.position.y);
       pointedSelectedTile.visible = !pointedSelectedTile.visible;
       doMove = pointedSelectedTile.visible;
       selectedStack = null;
     } else {
       if (doMove && selectedStack) {
-        const fromStack = cardStacks[selectedStack];
-        const card = fromStack.splice(fromStack.length - 1, 1)[0];
-        const stack = cardStacks[getStackId(pointedTile)];
-        stack.push(card);
-        moveTo(card, pointedTile, 1);
-        moveTo(card, card, stack.length / 50);
         pointedSelectedTile.visible = false;
+        const count = selectedStack.length;
+        for (let i = 0; i < count; i++) {
+          const card = selectedStack.splice(0, 1)[0];
+          pointedStack.push(card);
+          moveTo(card, pointedTile, pointedTile.position.y + 0.2);
+          renderer.render(scene, camera);
+          await new Promise((r) => setTimeout(r, 200));
+          moveTo(card, card, pointedTile.position.y + 0.02);
+          pointedTile = pointedStack[pointedStack.length - 1];
+        }
         selectedStack = null;
         doMove = false;
       } else {
@@ -157,7 +163,7 @@ function update() {
           pointedTile.position.y - 0.001
         );
         pointedSelectedTile.visible = true;
-        selectedStack = getStackId(pointedTile);
+        selectedStack = pointedStack;
         doMove = true;
       }
     }
