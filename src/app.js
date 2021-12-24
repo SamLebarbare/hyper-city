@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import * as AmmoInit from "three/examples/js/libs/ammo.wasm.js";
 import { VOXLoader } from "three/examples/jsm/loaders/VOXLoader.js";
 import { moveTo, tileOverlaps, tileLoader, getStackId } from "./utils.js";
 import { build, buildCursor, buildWorld } from "./world.js";
@@ -41,25 +40,19 @@ async function init() {
   camera.position.set(1, 1, 1);
 
   scene = new THREE.Scene();
-  scene.background = new THREE.Color("rgb(129, 199, 212)");
+  scene.background = new THREE.Color(0x00);
+  scene.fog = new THREE.FogExp2(0xffffff, 0.5);
   scene.add(camera);
 
   // light
 
-  const hemiLight = new THREE.HemisphereLight(
-    "rgb(129, 199, 212)",
-    0x444444,
-    1
-  );
+  const hemiLight = new THREE.HemisphereLight(0x555555, 0x444444, 0.6);
   scene.add(hemiLight);
 
   const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  dirLight.position.set(1.5, 3, 2.5);
+  dirLight.position.set(1.5, 5, 1);
+  dirLight.castShadow = true;
   scene.add(dirLight);
-
-  const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.2);
-  dirLight2.position.set(-1.5, -3, -2.5);
-  scene.add(dirLight2);
 
   const loader = new VOXLoader();
   const cardsName = ["forest", "winter", "rock", "volcano", "swamp", "island"];
@@ -78,15 +71,17 @@ async function init() {
   cursor = buildCursor(scene, tiles["select"], 0, 0);
   pointedSelectedTile = buildCursor(scene, tiles["selected"], 0, 0);
   pointedSelectedTile.visible = false;
-  // renderer
 
+  // renderer
   renderer = new THREE.WebGLRenderer();
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.autoUpdate = true;
+  renderer.shadowMap.type = THREE.BasicShadowMap; //THREE.VSMShadowMap; //THREE.BasicShadowMap; //THREE.PCFSoftShadowMap;
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
   // controls
-
   controls = new OrbitControls(camera, renderer.domElement);
   controls.minDistance = 0.1;
   controls.maxDistance = 0.5;
@@ -149,6 +144,7 @@ async function update() {
           const card = selectedStack.splice(0, 1)[0];
           pointedStack.push(card);
           moveTo(card, pointedTile, pointedTile.position.y + 0.2);
+          renderer.shadowMap.needsUpdate = true;
           renderer.render(scene, camera);
           await new Promise((r) => setTimeout(r, 200));
           moveTo(card, card, pointedTile.position.y + 0.02);
@@ -172,6 +168,7 @@ async function update() {
   }
 
   renderer.render(scene, camera);
+  renderer.shadowMap.needsUpdate = false;
   requestAnimationFrame(update);
 }
 
