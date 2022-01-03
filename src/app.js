@@ -40,7 +40,7 @@ async function init() {
   camera.position.set(1, 1, 1);
 
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x00);
+  scene.background = new THREE.Color(0xffffff);
   scene.fog = new THREE.FogExp2(0xffffff, 0.5);
   scene.add(camera);
 
@@ -74,10 +74,9 @@ async function init() {
 
   // renderer
   renderer = new THREE.WebGLRenderer();
-  renderer.shadowMap.enabled = true;
+  //renderer.shadowMap.enabled = true;
   renderer.shadowMap.autoUpdate = true;
-  renderer.shadowMap.type = THREE.BasicShadowMap; //THREE.VSMShadowMap; //THREE.BasicShadowMap; //THREE.PCFSoftShadowMap;
-  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.shadowMap.type = renderer.setPixelRatio(window.devicePixelRatio); //THREE.BasicShadowMap; //THREE.VSMShadowMap; //THREE.BasicShadowMap; //THREE.PCFSoftShadowMap;
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
