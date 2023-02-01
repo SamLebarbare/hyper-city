@@ -6,6 +6,7 @@ import { build, buildCursor, buildWorld } from "./world.js";
 
 let canvas,
   camera,
+  cursor,
   raycaster,
   mouse,
   clock,
